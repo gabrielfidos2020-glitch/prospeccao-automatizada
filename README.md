@@ -1,16 +1,16 @@
-# Prospecção Automatizada
+# ProspecÃ§Ã£o Automatizada
 
-Sistema de prospecção de clientes para serviços de desenvolvimento web.
+Sistema de prospecÃ§Ã£o de clientes para serviÃ§os de desenvolvimento web.
 
 ## Sprints
 - Sprint 0: Infraestrutura
-- Sprint 1: Captação de Leads
-- Sprint 2: Diagnóstico de Sites
+- Sprint 1: CaptaÃ§Ã£o de Leads
+- Sprint 2: DiagnÃ³stico de Sites
 - Sprint 3: Mensagens e Envio
 - Sprint 4: Acompanhamento
 
 ## Stack
-- n8n (automação)
+- n8n (automaÃ§Ã£o)
 - Node.js + Playwright (scraping)
 - LM Studio + Mistral 7B (IA local)
 - Evolution API (WhatsApp)
