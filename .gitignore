@@ -1,1 +1,5 @@
-.env`nnode_modules/`n*.log`n.n8n/`nollama/
+.env
+node_modules/
+*.log
+.n8n/
+ollama/
