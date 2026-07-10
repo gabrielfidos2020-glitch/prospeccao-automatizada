@@ -1,7 +1,7 @@
 {
   "name": "scraper",
   "version": "1.0.0",
-  "description": "Serviço de scraping com Playwright para o projeto de prospecção automatizada",
+  "description": "Serviço de captação de leads via SerpAPI (Google Maps) para o projeto de prospecção automatizada",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
