@@ -143,7 +143,8 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - LM_STUDIO_URL=http://host.docker.internal:1234/v1
+      - SERP_API_KEY=f8669cb5d0647caf889bfc01ae0350f2628c9b5f46a37f6e177dae7600f35bb5
+      - OLLAMA_URL=http://ollama:11434
       - TZ=America/Sao_Paulo
     networks:
       - prospeccao-net

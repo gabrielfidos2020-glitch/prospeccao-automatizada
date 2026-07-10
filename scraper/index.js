@@ -1,43 +1,36 @@
 const express = require('express');
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 const PORT = process.env.PORT || 3000;
+const SERP_API_KEY = process.env.SERP_API_KEY || '';
+const SERP_API_URL = 'https://serpapi.com/search';
 
 // ─────────────────────────────────────────
 // GET /health — Health check
 // ─────────────────────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'scraper', type: 'lightweight', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'scraper', type: 'serpapi', timestamp: new Date().toISOString() });
 });
 
 // ─────────────────────────────────────────
-// POST /screenshot — Fallback leve
-// Como não temos mais Chromium/Playwright, vamos
-// retornar uma imagem placeholder ou simular se necessário,
-// ou obter o HTML em vez de capturar visualmente.
+// POST /screenshot — Fallback leve (sem Chromium)
 // ─────────────────────────────────────────
 app.post('/screenshot', async (req, res) => {
   const { url } = req.body;
-
   if (!url) {
     return res.status(400).json({ erro: 'url_obrigatoria', detalhe: 'Campo "url" é obrigatório' });
   }
-
   console.log(`[screenshot] Fallback sem Chromium para: ${url}`);
-  
-  // Retorna uma imagem 1x1 pixel cinza em base64 como stub
   const greyPixelBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  res.json({ imagem_base64: greyPixelBase64, aviso: "Serviço configurado no modo leve (sem Chromium)." });
+  res.json({ imagem_base64: greyPixelBase64, aviso: 'Serviço configurado no modo leve (sem Chromium).' });
 });
 
 // ─────────────────────────────────────────
-// POST /scrape-maps — Busca leads no Google Maps
-// Abordagem 1: Requisições HTTP diretas e parsing inteligente.
-// Lógica completa será desenvolvida na Sprint 1.
+// POST /scrape-maps — Busca leads via SerpAPI (Google Maps)
+// Body: { query, regiao, limit }
 // ─────────────────────────────────────────
 app.post('/scrape-maps', async (req, res) => {
   const { query, regiao, limit = 10 } = req.body;
@@ -49,19 +42,83 @@ app.post('/scrape-maps', async (req, res) => {
     });
   }
 
-  console.log(`[scrape-maps] Buscando leads de forma leve: "${query}" em "${regiao}", limit=${limit}`);
+  if (!SERP_API_KEY) {
+    return res.status(500).json({
+      erro: 'config_invalida',
+      detalhe: 'Variável SERP_API_KEY não configurada no container',
+    });
+  }
 
-  // Stub para a Sprint 0
-  res.json({
-    leads: [],
-    aviso: 'Endpoint disponível em modo leve. Lógica HTTP nativa do Maps será implementada na Sprint 1.',
-    params: { query, regiao, limit },
-  });
+  const termoBusca = `${query} ${regiao}`;
+  console.log(`[scrape-maps] Chamando SerpAPI: "${termoBusca}", limit=${limit}`);
+
+  try {
+    const resposta = await axios.get(SERP_API_URL, {
+      params: {
+        engine: 'google_maps',
+        q: termoBusca,
+        api_key: SERP_API_KEY,
+        hl: 'pt',
+        gl: 'br',
+        num: Math.min(limit, 20),
+      },
+      timeout: 30000,
+    });
+
+    const dados = resposta.data;
+
+    // Detecta erro da SerpAPI no payload
+    if (dados.error) {
+      console.error(`[scrape-maps] Erro SerpAPI: ${dados.error}`);
+      return res.status(502).json({
+        erro: 'falha_serpapi',
+        detalhe: dados.error,
+      });
+    }
+
+    const resultados = dados.local_results || [];
+
+    if (resultados.length === 0) {
+      console.warn(`[scrape-maps] Nenhum resultado retornado pela SerpAPI para: "${termoBusca}"`);
+      return res.json({ leads: [], total: 0 });
+    }
+
+    // Mapeia os campos da SerpAPI para o formato interno do sistema
+    const leads = resultados.slice(0, limit).map((r) => ({
+      nome:      r.title     || '',
+      telefone:  r.phone     || '',
+      endereco:  r.address   || '',
+      site:      r.website   || '',
+      categoria: r.type      || '',
+    }));
+
+    console.log(`[scrape-maps] ${leads.length} leads encontrados para "${termoBusca}"`);
+    res.json({ leads, total: leads.length });
+
+  } catch (err) {
+    // Trata erros HTTP da SerpAPI (429 rate limit, 401 chave inválida, etc.)
+    const status = err.response?.status;
+    const mensagem = err.response?.data?.error || err.message || 'Erro desconhecido';
+
+    if (status === 429) {
+      console.error('[scrape-maps] Limite de requisições SerpAPI atingido');
+      return res.status(429).json({
+        erro: 'bloqueio_detectado',
+        detalhe: 'Limite de requisições da SerpAPI atingido. Tente novamente em alguns segundos.',
+      });
+    }
+
+    console.error(`[scrape-maps] Erro inesperado: ${mensagem}`);
+    res.status(500).json({
+      erro: 'falha_serpapi',
+      detalhe: mensagem,
+    });
+  }
 });
 
 // ─────────────────────────────────────────
 // Inicialização
 // ─────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`[scraper] Rodando em modo leve na porta ${PORT}`);
+  console.log(`[scraper] Rodando com SerpAPI na porta ${PORT}`);
 });

@@ -1,0 +1,94 @@
+{
+  "id": "workflow-a-captacao-leads-v1",
+  "name": "Workflow A — Captação de Leads",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Disparo Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-001",
+              "name": "termo_busca",
+              "value": "dentista",
+              "type": "string"
+            },
+            {
+              "id": "field-002",
+              "name": "regiao",
+              "value": "São José dos Campos, SP",
+              "type": "string"
+            },
+            {
+              "id": "field-003",
+              "name": "limit",
+              "value": 10,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Parâmetros da Busca",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://scraper:3000/scrape-maps",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ query: $json.termo_busca, regiao: $json.regiao, limit: $json.limit }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Buscar Leads no Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────\n// Mapeamento de categoria → 4 nichos guarda-chuva\n// Sem match = null → lead DESCARTADO\n// ─────────────────────────────────────────────────────\nconst NICHO_MAP = {\n  // Saúde/estética\n  'Clínica':           'Saúde/estética',\n  'Dentista':          'Saúde/estética',\n  'Odontológica':      'Saúde/estética',\n  'Médico':            'Saúde/estética',\n  'Fisioterapeuta':    'Saúde/estética',\n  'Estética':          'Saúde/estética',\n  'Psicólogo':         'Saúde/estética',\n  'Nutricionista':     'Saúde/estética',\n  'Salão':             'Saúde/estética',\n  'Spa':               'Saúde/estética',\n  'Academia':          'Saúde/estética',\n  // Serviços profissionais\n  'Advogado':          'Serviços profissionais',\n  'Contador':          'Serviços profissionais',\n  'Arquiteto':         'Serviços profissionais',\n  'Imobiliária':       'Serviços profissionais',\n  'Imóveis':           'Serviços profissionais',\n  'Consultoria':       'Serviços profissionais',\n  'Engenheiro':        'Serviços profissionais',\n  // Comércio/loja física\n  'Loja de roupa':     'Comércio/loja física',\n  'Loja de roupas':    'Comércio/loja física',\n  'Móveis':            'Comércio/loja física',\n  'Decoração':         'Comércio/loja física',\n  'Joalheria':         'Comércio/loja física',\n  'Loja de presentes': 'Comércio/loja física',\n  // Eventos/hospedagem\n  'Hotel':             'Eventos/hospedagem',\n  'Pousada':           'Eventos/hospedagem',\n  'Buffet':            'Eventos/hospedagem',\n  'Espaço de festa':   'Eventos/hospedagem',\n};\n\n// ─────────────────────────────────────────────────────\n// Domínios de redes sociais — não contam como site próprio\n// ─────────────────────────────────────────────────────\nconst REDES_SOCIAIS = [\n  'instagram.com',\n  'facebook.com',\n  'fb.com',\n  'linktr.ee',\n  'linktree.com',\n  'wa.me',\n  'api.whatsapp.com',\n  'twitter.com',\n  'tiktok.com',\n];\n\nfunction resolverNicho(categoria) {\n  if (!categoria) return null;\n  for (const [chave, nicho] of Object.entries(NICHO_MAP)) {\n    if (categoria.toLowerCase().includes(chave.toLowerCase())) {\n      return nicho;\n    }\n  }\n  return null; // sem match → lead será descartado\n}\n\nfunction temSiteProprio(site) {\n  if (!site || site.trim() === '') return false;\n  return !REDES_SOCIAIS.some(dominio => site.toLowerCase().includes(dominio));\n}\n\n// ─────────────────────────────────────────────────────\n// Processamento\n// ─────────────────────────────────────────────────────\nconst leads = $input.first().json.leads || [];\n\nconst leads_com_site    = [];\nconst leads_sem_site    = [];\nconst leads_descartados = [];\nlet indiceCanal = 0;\n\nleads.forEach((lead) => {\n  const nicho = resolverNicho(lead.categoria);\n\n  if (nicho === null) {\n    leads_descartados.push({\n      nome:      lead.nome      || '',\n      categoria: lead.categoria || '',\n      motivo:    'nicho_nao_mapeado',\n    });\n    return;\n  }\n\n  const canal    = indiceCanal % 2 === 0 ? 'whatsapp' : 'instagram';\n  const tem_site = temSiteProprio(lead.site);\n  indiceCanal++;\n\n  const leadProcessado = {\n    nome:              lead.nome      || '',\n    telefone:          lead.telefone  || '',\n    endereco:          lead.endereco  || '',\n    site:              lead.site      || '',\n    categoria:         lead.categoria || '',\n    categoria_mapeada: nicho,\n    canal:             canal,\n    tem_site:          tem_site,\n  };\n\n  if (tem_site) {\n    leads_com_site.push(leadProcessado);\n  } else {\n    leads_sem_site.push(leadProcessado);\n  }\n});\n\nconst resumo = {\n  total_recebidos:   leads.length,\n  total_processados: leads_com_site.length + leads_sem_site.length,\n  com_site:          leads_com_site.length,\n  sem_site:          leads_sem_site.length,\n  descartados:       leads_descartados.length,\n};\n\nreturn [{\n  json: {\n    leads_com_site,\n    leads_sem_site,\n    leads_descartados,\n    resumo,\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Classificar e Separar Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Disparo Manual": {
+      "main": [
+        [{ "node": "Parâmetros da Busca", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parâmetros da Busca": {
+      "main": [
+        [{ "node": "Buscar Leads no Scraper", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Leads no Scraper": {
+      "main": [
+        [{ "node": "Classificar e Separar Leads", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}
