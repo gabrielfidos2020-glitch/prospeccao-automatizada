@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS - Command Center</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body>
+  
+  <!-- Overlay Dark para Modais e Painel Lateral -->
+  <div id="overlay" class="overlay"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <svg viewBox="0 0 100 100" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#7A1A1A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Cabeça, orelhas e o corte superior -->
+          <path d="M 40 12 L 35 18 L 28 14 A 35 35 0 0 0 18 48 A 12 12 0 0 0 18 70 A 38 38 0 0 0 50 92 A 38 38 0 0 0 82 70 A 12 12 0 0 0 82 48 A 38 38 0 0 0 40 12 Z" />
+          <!-- Olho Amêndoa -->
+          <path d="M 28 55 Q 50 25 72 55 Q 50 85 28 55 Z" />
+          <!-- Pupila oval preenchida -->
+          <ellipse cx="50" cy="55" rx="7" ry="13" fill="#7A1A1A" stroke="none" />
+        </g>
+      </svg>
+      <span>ARGUS</span>
+    </div>
+    
+    <nav class="navbar">
+      <a href="#" class="nav-item active" data-tab="dashboard">Dashboard</a>
+      <a href="#" class="nav-item" data-tab="leads">Leads</a>
+      <a href="#" class="nav-item" data-tab="historico">Histórico</a>
+      <a href="#" class="nav-item" data-tab="config">Configurações</a>
+    </nav>
+
+    <div class="header-status" id="header-status">
+      <!-- Preenchido via JS (Bolinhas dos serviços) -->
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="content">
+    
+    <!-- VIEW DASHBOARD -->
+    <div id="tab-dashboard" class="view active">
+      <div class="dashboard-top">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Leads Hoje</span>
+            <span class="metric-val" id="met-hoje">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Pendentes</span>
+            <span class="metric-val" id="met-pendentes">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Enviados</span>
+            <span class="metric-val" id="met-enviados">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Respondidos</span>
+            <span class="metric-val" id="met-respondidos">0</span>
+          </div>
+        </div>
+        <button id="btn-nova-rodada" class="btn-primary">
+          <i class="ri-add-line"></i> Nova Rodada
+        </button>
+      </div>
+
+      <div class="kanban-board">
+        <!-- Coluna Captando -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <h3>Captando</h3>
+            <span class="kanban-count" id="count-captando">0</span>
+          </div>
+          <div class="kanban-cards" id="col-captando"></div>
+        </div>
+        <!-- Coluna Aguardando Aprovação -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <h3>Aguardando Aprovação</h3>
+            <span class="kanban-count" id="count-aguardando_aprovacao">0</span>
+          </div>
+          <div class="kanban-cards" id="col-aguardando_aprovacao"></div>
+        </div>
+        <!-- Coluna Enviados -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <h3>Enviados</h3>
+            <span class="kanban-count" id="count-enviados">0</span>
+          </div>
+          <div class="kanban-cards" id="col-enviados"></div>
+        </div>
+        <!-- Coluna Respondidos -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <h3>Respondidos</h3>
+            <span class="kanban-count" id="count-respondidos">0</span>
+          </div>
+          <div class="kanban-cards" id="col-respondidos"></div>
+        </div>
+        <!-- Coluna Erro -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <h3>Erro</h3>
+            <span class="kanban-count" id="count-erro">0</span>
+          </div>
+          <div class="kanban-cards" id="col-erro"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW LEADS -->
+    <div id="tab-leads" class="view">
+      <div class="view-header">
+        <h2>Banco de Leads</h2>
+        <div class="filters">
+          <select id="filter-status">
+            <option value="">Todos os Status</option>
+            <option value="captando">Captando</option>
+            <option value="aguardando_aprovacao">Aguardando Aprovação</option>
+            <option value="enviados">Enviados</option>
+            <option value="respondidos">Respondidos</option>
+          </select>
+          <select id="filter-nicho">
+            <option value="">Todos os Nichos</option>
+            <option value="Saúde">Saúde</option>
+            <option value="Serviços">Serviços</option>
+            <option value="Comércio">Comércio</option>
+            <option value="Estética">Estética</option>
+          </select>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nome do Negócio</th>
+            <th>Nicho</th>
+            <th>Canal</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="table-leads">
+          <!-- via JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- VIEW HISTÓRICO -->
+    <div id="tab-historico" class="view">
+      <div class="view-header">
+        <h2>Histórico de Eventos</h2>
+      </div>
+      <div class="history-list" id="list-historico">
+        <!-- via JS -->
+      </div>
+    </div>
+
+    <!-- VIEW CONFIGURAÇÕES -->
+    <div id="tab-config" class="view">
+      <div class="empty-state">
+        <i class="ri-tools-fill"></i>
+        <p>Configurações Avançadas</p>
+        <span class="muted">Em breve na próxima versão.</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: NOVA RODADA -->
+  <div class="modal" id="modal-rodada">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Iniciar Nova Rodada</h3>
+        <button class="close-btn" id="close-modal"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nicho de Prospecção</label>
+          <select id="rodada-nicho">
+            <option value="Saúde">Saúde</option>
+            <option value="Serviços">Serviços</option>
+            <option value="Comércio">Comércio</option>
+            <option value="Estética">Estética</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Região (Google Maps)</label>
+          <input type="text" id="rodada-regiao" value="São José dos Campos, SP">
+        </div>
+        <div class="form-group">
+          <label>Quantidade Limite</label>
+          <input type="number" id="rodada-qtd" value="10" min="1" max="50">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btn-submit-rodada">INICIAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL LATERAL (LEAD DETAILS) -->
+  <aside class="side-panel" id="side-panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <h3 id="sp-nome">Nome do Negócio</h3>
+        <div class="sp-badges">
+          <span id="sp-nicho" class="badge">Nicho</span>
+          <span id="sp-canal" class="badge">Canal</span>
+        </div>
+      </div>
+      <button class="close-btn" id="close-panel"><i class="ri-close-line"></i></button>
+    </div>
+    
+    <div class="panel-body">
+      <!-- Info Sec -->
+      <section class="panel-section">
+        <h4>Empresa</h4>
+        <div class="sp-row">
+          <i class="ri-phone-line"></i> <span id="sp-telefone"></span>
+        </div>
+        <div class="sp-row">
+          <i class="ri-links-line"></i> <a href="#" id="sp-url" target="_blank">Acessar Site</a>
+        </div>
+      </section>
+      
+      <!-- Diagnostic Sec -->
+      <section class="panel-section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4>Diagnóstico</h4>
+          <span id="sp-severidade" class="badge">Severidade</span>
+        </div>
+        <ul id="sp-diagnostico" class="bullet-list">
+        </ul>
+      </section>
+      
+      <!-- Timeline Sec -->
+      <section class="panel-section">
+        <h4>Timeline</h4>
+        <div class="timeline" id="sp-timeline">
+          <!-- via JS -->
+        </div>
+      </section>
+      
+      <!-- Copy Sec -->
+      <section class="panel-section">
+        <h4>Mensagem Gerada</h4>
+        <div class="copy-box">
+          <p id="sp-mensagem"></p>
+          <button class="btn-copy" id="btn-copy"><i class="ri-file-copy-line"></i> Copiar</button>
+        </div>
+      </section>
+    </div>
+    
+    <!-- Action Footer (Só visível se status = aguardando_aprovacao) -->
+    <div class="panel-footer" id="sp-footer" style="display: none;">
+      <button class="btn-reject" id="btn-rejeitar"><i class="ri-close-line"></i> REJEITAR</button>
+      <button class="btn-approve" id="btn-aprovar"><i class="ri-check-line"></i> APROVAR</button>
+    </div>
+  </aside>
+
+  <!-- Loading State Global para requests bloqueantes -->
+  <div id="global-loader" class="global-loader" style="display: none;">
+    <i class="ri-loader-4-line ri-spin"></i>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

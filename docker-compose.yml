@@ -2,7 +2,6 @@ services:
 
   # ─────────────────────────────────────────
   # n8n — Automação de workflows
-  # Acesso: http://localhost:5678
   # ─────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
@@ -34,7 +33,6 @@ services:
 
   # ─────────────────────────────────────────
   # Evolution API — Envio de mensagens WhatsApp
-  # Acesso: http://localhost:8080
   # ─────────────────────────────────────────
   evolution-api:
     image: evoapicloud/evolution-api:latest
@@ -89,7 +87,6 @@ services:
 
   # ─────────────────────────────────────────
   # Ollama — IA Local (Alternativa leve ao LM Studio)
-  # Acesso: http://localhost:11434
   # ─────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
@@ -107,7 +104,6 @@ services:
 
   # ─────────────────────────────────────────
   # Instagrapi — Envio de DMs no Instagram
-  # Acesso: http://localhost:8001
   # ─────────────────────────────────────────
   instagrapi:
     build:
@@ -121,6 +117,8 @@ services:
       - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-}
       - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-}
       - TZ=America/Sao_Paulo
+    volumes:
+      - instagrapi_data:/app/data
     networks:
       - prospeccao-net
     healthcheck:
@@ -131,7 +129,6 @@ services:
 
   # ─────────────────────────────────────────
   # Scraper — Node.js + SerpAPI (Google Maps)
-  # Acesso: http://localhost:3000
   # ─────────────────────────────────────────
   scraper:
     build:
@@ -156,6 +153,35 @@ services:
       timeout: 10s
       retries: 3
 
+  # ─────────────────────────────────────────
+  # Argus UI — Interface de gerenciamento
+  # Acesso: http://localhost:3001
+  # ─────────────────────────────────────────
+  argus-ui:
+    build: ./argus-ui
+    container_name: argus-ui
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - N8N_URL=http://n8n:5678
+      - OLLAMA_URL=http://prospeccao-ollama:11434
+      - SCRAPER_URL=http://scraper:3000
+      - EVOLUTION_URL=http://evolution-api:8080
+      - INSTAGRAPI_URL=http://instagrapi:8001
+    networks:
+      - prospeccao-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - n8n
+      - ollama
+      - evolution-api
+
 # ─────────────────────────────────────────
 # Rede compartilhada entre todos os containers
 # ─────────────────────────────────────────
@@ -177,3 +203,5 @@ volumes:
     name: prospeccao_postgres_data
   ollama_data:
     name: prospeccao_ollama_data
+  instagrapi_data:
+    name: prospeccao_instagrapi_data
