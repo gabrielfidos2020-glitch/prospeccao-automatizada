@@ -16,14 +16,12 @@
   <header class="header">
     <div class="brand">
       <svg viewBox="0 0 100 100" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-        <g fill="none" stroke="#7A1A1A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Cabeça, orelhas e o corte superior -->
-          <path d="M 40 12 L 35 18 L 28 14 A 35 35 0 0 0 18 48 A 12 12 0 0 0 18 70 A 38 38 0 0 0 50 92 A 38 38 0 0 0 82 70 A 12 12 0 0 0 82 48 A 38 38 0 0 0 40 12 Z" />
-          <!-- Olho Amêndoa -->
-          <path d="M 28 55 Q 50 25 72 55 Q 50 85 28 55 Z" />
-          <!-- Pupila oval preenchida -->
-          <ellipse cx="50" cy="55" rx="7" ry="13" fill="#7A1A1A" stroke="none" />
-        </g>
+        <!-- Cabeça preenchida com a cor da marca -->
+        <path fill="#7A1A1A" d="M 40 12 L 35 18 L 28 14 A 35 35 0 0 0 18 48 A 12 12 0 0 0 18 70 A 38 38 0 0 0 50 92 A 38 38 0 0 0 82 70 A 12 12 0 0 0 82 48 A 38 38 0 0 0 40 12 Z" />
+        <!-- Olho vazado (usando a cor do fundo do header para simular o recorte) -->
+        <path fill="var(--surface, #FAF5F0)" d="M 28 55 Q 50 25 72 55 Q 50 85 28 55 Z" />
+        <!-- Pupila sólida no meio -->
+        <ellipse cx="50" cy="55" rx="7" ry="13" fill="#7A1A1A" />
       </svg>
       <span>ARGUS</span>
     </div>
