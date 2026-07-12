@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const config = require('./config');
 const axios = require('axios');
+const pool = require('./db');
 
 const app = express();
 
@@ -11,99 +12,17 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// --- MOCK DATABASE ---
-let leads = [
-  {
-    id: '1',
-    nome: 'Odonto Excellence',
-    telefone: '5511999990001',
-    canal: 'whatsapp',
-    nicho: 'Saúde',
-    severidade: 'critico',
-    mensagem_gerada: 'Oi! Encontrei a Odonto Excellence no Google e dei uma olhada no site de vocês. Notei que faltam botões de agendamento visíveis. Trabalho com isso e posso ajudar, topa bater um papo?',
-    diagnostico: ['Falta CTA visível', 'Velocidade do site lenta', 'Imagens pesadas'],
-    status: 'aguardando_aprovacao',
+// Utilitário para formatar a linha do DB no formato que o Frontend espera
+function mapLeadToFrontend(row) {
+  return {
+    ...row,
+    diagnostico: row.problemas_encontrados || [],
     timeline: {
-      captado_em: new Date(Date.now() - 3600000).toISOString(),
-      diagnosticado_em: new Date(Date.now() - 3000000).toISOString(),
-      copy_gerada_em: new Date(Date.now() - 2500000).toISOString(),
-      enviado_em: null,
-      respondido_em: null
+      captado_em: row.created_at,
+      enviado_em: (row.status === 'enviado' || row.status === 'erro_envio') ? row.updated_at : null
     }
-  },
-  {
-    id: '2',
-    nome: 'Advocacia Silva',
-    telefone: '5511999990002',
-    canal: 'whatsapp',
-    nicho: 'Serviços',
-    severidade: 'melhoria',
-    mensagem_gerada: 'Oi! Vi a Advocacia Silva no Google e notei que vocês não têm site ainda. O cliente busca credibilidade antes de fechar. Se fizer sentido, posso mostrar exemplos.',
-    diagnostico: ['Site inacessível (DNS)'],
-    status: 'enviados',
-    timeline: {
-      captado_em: new Date(Date.now() - 86400000).toISOString(),
-      diagnosticado_em: new Date(Date.now() - 85000000).toISOString(),
-      copy_gerada_em: new Date(Date.now() - 84000000).toISOString(),
-      enviado_em: new Date(Date.now() - 83000000).toISOString(),
-      respondido_em: null
-    }
-  },
-  {
-    id: '3',
-    nome: 'Estética Linda',
-    telefone: '5511999990003',
-    canal: 'whatsapp',
-    nicho: 'Estética',
-    severidade: 'critico',
-    mensagem_gerada: 'Oi! Vi a Estética Linda no Google e notei que não têm site. O paciente decide pela confiança visual. Já ajudei negócios parecidos, topa conversar?',
-    diagnostico: ['Lead sem site'],
-    status: 'respondidos',
-    timeline: {
-      captado_em: new Date(Date.now() - 172800000).toISOString(),
-      diagnosticado_em: new Date(Date.now() - 171800000).toISOString(),
-      copy_gerada_em: new Date(Date.now() - 170800000).toISOString(),
-      enviado_em: new Date(Date.now() - 160800000).toISOString(),
-      respondido_em: new Date(Date.now() - 50000000).toISOString()
-    }
-  },
-  {
-    id: '4',
-    nome: 'Mecânica Express',
-    telefone: '5511999990004',
-    canal: 'whatsapp',
-    nicho: 'Serviços',
-    severidade: 'melhoria',
-    mensagem_gerada: '',
-    diagnostico: [],
-    status: 'captando',
-    timeline: {
-      captado_em: new Date().toISOString(),
-      diagnosticado_em: null,
-      copy_gerada_em: null,
-      enviado_em: null,
-      respondido_em: null
-    }
-  },
-  {
-    id: '5',
-    nome: 'Padaria Doce Pão',
-    telefone: '5511999990005',
-    canal: 'whatsapp',
-    nicho: 'Comércio',
-    severidade: 'critico',
-    mensagem_gerada: 'Erro de timeout no servidor',
-    diagnostico: ['Erro de extração'],
-    status: 'erro',
-    timeline: {
-      captado_em: new Date(Date.now() - 3600000).toISOString(),
-      diagnosticado_em: new Date(Date.now() - 3000000).toISOString(),
-      copy_gerada_em: null,
-      enviado_em: null,
-      respondido_em: null
-    }
-  }
-];
+  };
+}
 
 // --- ROTAS ---
 
@@ -119,76 +38,86 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-app.post('/api/rodada', (req, res) => {
+app.post('/api/rodada', async (req, res) => {
   const { nicho, regiao, quantidade } = req.body;
-  // Simula criação de novos leads na coluna Captando
-  for(let i=0; i<quantidade; i++) {
-    leads.push({
-      id: Date.now().toString() + i,
-      nome: `Lead Simulado ${i+1} (${nicho})`,
-      telefone: '5511999999999',
-      canal: 'whatsapp',
-      nicho: nicho,
-      severidade: 'melhoria',
-      mensagem_gerada: '',
-      diagnostico: [],
-      status: 'captando',
-      timeline: {
-        captado_em: new Date().toISOString(),
-        diagnosticado_em: null,
-        copy_gerada_em: null,
-        enviado_em: null,
-        respondido_em: null
-      }
-    });
+  // Futuramente dispara Webhook do N8N.
+  // Por enquanto apenas retorna sucesso para a UI não travar.
+  res.json({ success: true, message: 'Rodada iniciada via N8N' });
+});
+
+app.get('/api/leads', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM argus.leads WHERE status NOT IN ('rejeitado') ORDER BY created_at DESC");
+    res.json(rows.map(mapLeadToFrontend));
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
-  res.json({ success: true, message: 'Rodada iniciada' });
 });
 
-app.get('/api/leads', (req, res) => {
-  // Retorna todos para o Kanban
-  res.json(leads);
-});
-
-app.get('/api/leads/:id', (req, res) => {
-  const lead = leads.find(l => l.id === req.params.id);
-  if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-  res.json(lead);
+app.get('/api/leads/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM argus.leads WHERE id = $1", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Lead não encontrado' });
+    res.json(mapLeadToFrontend(rows[0]));
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/leads/:id/aprovar', async (req, res) => {
-  const index = leads.findIndex(l => l.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Not found' });
-  
-  const lead = leads[index];
-  
-  // Simula disparo evolution api
   try {
-    const evoRes = await axios.post(`${config.EVOLUTION_URL}/message/sendText/capta%C3%A7ao`, {
-      number: lead.telefone,
-      text: lead.mensagem_gerada
-    }, { headers: { apikey: 'changeme' }, timeout: 5000 }).catch(() => null);
+    const { id } = req.params;
     
-    lead.status = 'enviados';
-    lead.timeline.enviado_em = new Date().toISOString();
-    res.json({ success: true });
+    // 1. Marca como aprovado e recupera dados para envio
+    await pool.query("UPDATE argus.leads SET status = 'aprovado', updated_at = NOW() WHERE id = $1", [id]);
+    const { rows } = await pool.query("SELECT telefone, mensagem_gerada FROM argus.leads WHERE id = $1", [id]);
+    
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    const lead = rows[0];
+
+    // 2. Dispara Evolution API
+    let evolutionSuccess = false;
+    let errorDetail = null;
+    try {
+      const evoRes = await axios.post(`${config.EVOLUTION_URL}/message/sendText/default`, {
+        number: lead.telefone,
+        text: lead.mensagem_gerada
+      }, { headers: { apikey: process.env.EVOLUTION_API_KEY || 'changeme' }, timeout: 10000 });
+      
+      evolutionSuccess = true;
+    } catch(err) {
+      console.error('Erro Evolution API', err.response?.data || err.message);
+      errorDetail = err.message;
+    }
+    
+    // 3. Atualiza status final (Enviado ou Erro)
+    const finalStatus = evolutionSuccess ? 'enviado' : 'erro_envio';
+    await pool.query("UPDATE argus.leads SET status = $1, updated_at = NOW() WHERE id = $2", [finalStatus, id]);
+    
+    res.json({ success: true, status: finalStatus });
   } catch(e) {
-    res.status(500).json({ error: 'Falha no disparo' });
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
 });
 
-app.post('/api/leads/:id/rejeitar', (req, res) => {
-  const index = leads.findIndex(l => l.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Not found' });
-  
-  leads[index].status = 'erro'; // Movendo descartado para erro ou podemos ocultar
-  res.json({ success: true });
+app.post('/api/leads/:id/rejeitar', async (req, res) => {
+  try {
+    await pool.query("UPDATE argus.leads SET status = 'rejeitado', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.get('/api/historico', (req, res) => {
-  const historico = leads.filter(l => ['enviados', 'respondidos', 'erro'].includes(l.status));
-  historico.sort((a,b) => new Date(b.timeline.captado_em) - new Date(a.timeline.captado_em));
-  res.json(historico);
+app.get('/api/historico', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM argus.leads WHERE status IN ('enviado','respondido','erro','rejeitado', 'erro_envio', 'erro_copy') ORDER BY updated_at DESC");
+    res.json(rows.map(mapLeadToFrontend));
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('*', (req, res) => {

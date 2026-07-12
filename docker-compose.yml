@@ -170,6 +170,8 @@ services:
       - SCRAPER_URL=http://scraper:3000
       - EVOLUTION_URL=http://evolution-api:8080
       - INSTAGRAPI_URL=http://instagrapi:8001
+      - POSTGRES_URL=postgresql://postgres:postgres@prospeccao-postgres:5432/evolution
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-changeme}
     networks:
       - prospeccao-net
     healthcheck:
