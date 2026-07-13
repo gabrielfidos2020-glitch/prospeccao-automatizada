@@ -40,9 +40,20 @@ app.get('/api/status', (req, res) => {
 
 app.post('/api/rodada', async (req, res) => {
   const { nicho, regiao, quantidade } = req.body;
-  // Futuramente dispara Webhook do N8N.
-  // Por enquanto apenas retorna sucesso para a UI não travar.
-  res.json({ success: true, message: 'Rodada iniciada via N8N' });
+  
+  try {
+    // Dispara Webhook do N8N (Workflow A)
+    await axios.post(`${config.N8N_URL}/webhook/argus-rodada`, {
+      nicho,
+      regiao,
+      limit: quantidade
+    }, { timeout: 10000 });
+    
+    res.json({ success: true, message: 'Rodada iniciada no n8n' });
+  } catch (error) {
+    console.error('Erro ao disparar N8N:', error.message);
+    res.status(500).json({ error: 'Falha ao iniciar rodada no n8n' });
+  }
 });
 
 app.get('/api/leads', async (req, res) => {

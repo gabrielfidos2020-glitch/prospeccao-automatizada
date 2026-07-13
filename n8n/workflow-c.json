@@ -4,93 +4,20 @@
   "nodes": [
     {
       "id": "a1b2c3d4-0001-0001-0001-000000000001",
-      "name": "Trigger Manual",
-      "type": "n8n-nodes-base.manualTrigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [
-        200,
-        300
-      ],
+      "position": [200, 300],
       "parameters": {}
-    },
-    {
-      "id": "a1b2c3d4-0002-0002-0002-000000000002",
-      "name": "Definir Lead de Teste",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [
-        400,
-        300
-      ],
-      "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "assign-01",
-              "name": "nome",
-              "value": "Odonto Special SJC",
-              "type": "string"
-            },
-            {
-              "id": "assign-02",
-              "name": "telefone",
-              "value": "5512999990000",
-              "type": "string"
-            },
-            {
-              "id": "assign-03",
-              "name": "canal",
-              "value": "whatsapp",
-              "type": "string"
-            },
-            {
-              "id": "assign-04",
-              "name": "categoria_mapeada",
-              "value": "Saúde/estética",
-              "type": "string"
-            },
-            {
-              "id": "assign-05",
-              "name": "tem_site",
-              "value": true,
-              "type": "boolean"
-            },
-            {
-              "id": "assign-06",
-              "name": "site_inacessivel",
-              "value": false,
-              "type": "boolean"
-            },
-            {
-              "id": "assign-07",
-              "name": "problemas_encontrados",
-              "value": "[\"Não há botão de WhatsApp visível\"]",
-              "type": "array"
-            },
-            {
-              "id": "assign-08",
-              "name": "severidade",
-              "value": "melhoria",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      }
     },
     {
       "id": "a1b2c3d4-0011-0011-0011-000000000011",
       "name": "Selecionar Variaveis e Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        600,
-        300
-      ],
+      "position": [600, 300],
       "parameters": {
-        "jsCode": "const lead = $input.first().json;\n\nif (!lead.tem_site || lead.site_inacessivel) {\n  const nicho = lead.categoria_mapeada || 'Saúde/estética';\n  const CONTEXTOS = {\n    'Saúde/estética': { observacao_sem_site: 'o paciente decide pela confiança visual antes de marcar' },\n    'Serviços profissionais': { observacao_sem_site: 'o cliente busca credibilidade antes de fechar um contrato' },\n    'Comércio/loja física': { observacao_sem_site: 'o cliente quer ver os produtos antes de ir até a loja' },\n    'Eventos/hospedagem': { observacao_sem_site: 'o cliente decide quase só pela primeira impressão visual' }\n  };\n  const obs = (CONTEXTOS[nicho] || CONTEXTOS['Saúde/estética']).observacao_sem_site;\n  lead.mensagem_gerada_sem_site = `Oi! Vi a ${lead.nome} no Google e notei que vocês não têm site ainda, só aparecem por aqui mesmo.\\n\\nIsso chamou minha atenção porque ${obs} — e dá pra fazer isso ficar bem simples, sem virar um projeto grande ou caro.\\n\\nJá ajudei alguns negócios parecidos com isso. Se fizer sentido, posso te mostrar uns exemplos e a gente conversa se topa, sem compromisso nenhum.`;\n  \n  lead.ollama_prompt = \"Escreva apenas a palavra 'ok'.\";\n  return [{ json: lead }];\n}\n\nconst lib = {\n  abertura: [\n    \"Oi! Encontrei a [nome] no Google e dei uma olhada no site de vocês.\",\n    \"Oi! Passei pelo site de vocês e uma coisa me chamou atenção.\",\n    \"Oi! Estava pesquisando empresas da região e acabei chegando no site de vocês.\"\n  ],\n  contexto: [\n    \"Vi que vocês trabalham com [principal_servico].\",\n    \"Acabei vendo que vocês atuam na área de [principal_servico].\",\n    \"Pelo que vi no site, o foco de vocês é [principal_servico].\"\n  ],\n  gancho: [\n    \"Enquanto olhava o site, teve um detalhe que me chamou atenção.\",\n    \"Navegando por ele, encontrei algo que acho que vale mostrar.\",\n    \"Vi uma coisa no site que pode estar atrapalhando sem vocês perceberem.\"\n  ],\n  impacto: [\n    \"No fim, quem está com pressa normalmente não insiste muito.\",\n    \"Esse tipo de detalhe faz muita gente fechar a página antes de entrar em contato.\",\n    \"Nessa hora muita gente acaba indo para outro resultado.\"\n  ],\n  cta: [\n    \"Se fizer sentido, posso te mostrar exatamente o que encontrei.\",\n    \"Posso te explicar melhor o que vi.\",\n    \"Se quiser, te mostro em dois minutos.\"\n  ]\n};\n\nconst r = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\nlead.b1_abertura = r(lib.abertura).replace('\\[nome\\]', lead.nome);\nlead.b2_contexto = lead.principal_servico ? r(lib.contexto).replace('\\[principal_servico\\]', lead.principal_servico.toLowerCase()) : '';\nlead.b3_gancho = r(lib.gancho);\n\nconst problema_principal = (lead.problemas_encontrados && lead.problemas_encontrados.length > 0) \n    ? lead.problemas_encontrados[0]\n    : 'Algumas coisas poderiam estar melhores';\n\nlead.b5_impacto = r(lib.impacto);\nlead.b6_autoridade = \"Trabalho justamente com esse tipo de análise para negócios locais.\";\nlead.b7_cta = r(lib.cta);\n\nlead.ollama_prompt = `Você é um especialista em comunicação de WhatsApp no Brasil. Sua única tarefa é reescrever o problema técnico abaixo em terceira pessoa (falando do site do cliente) em UMA frase coloquial e natural (máximo de 2 frases) para que se encaixe no meio de uma conversa com o dono da empresa. Ex: 'O site não possui...' e nunca 'O nosso site não possui...'. Não use jargão técnico como SEO, viewport, meta description, alt tag, SSL, cache, DOM, HTML, tag.\\n\\nPROBLEMA ORIGINAL:\\n\"${problema_principal}\"\\n\\nRetorne APENAS uma frase contendo a reescrita do problema. Não escreva nenhuma outra frase antes ou depois. Não adicione saudações, nem introduções.`;\n\nreturn [{\n  json: lead\n}];"
+        "jsCode": "const lead = $('Execute Workflow Trigger').first().json;\n\nif (!lead.tem_site || lead.site_inacessivel) {\n  const nicho = lead.categoria_mapeada || 'Saúde/estética';\n  const CONTEXTOS = {\n    'Saúde/estética': { observacao_sem_site: 'o paciente decide pela confiança visual antes de marcar' },\n    'Serviços profissionais': { observacao_sem_site: 'o cliente busca credibilidade antes de fechar um contrato' },\n    'Comércio/loja física': { observacao_sem_site: 'o cliente quer ver os produtos antes de ir até a loja' },\n    'Eventos/hospedagem': { observacao_sem_site: 'o cliente decide quase só pela primeira impressão visual' }\n  };\n  const obs = (CONTEXTOS[nicho] || CONTEXTOS['Saúde/estética']).observacao_sem_site;\n  lead.mensagem_gerada_sem_site = `Oi! Vi a ${lead.nome} no Google e notei que vocês não têm site ainda, só aparecem por aqui mesmo.\\n\\nIsso chamou minha atenção porque ${obs} — e dá pra fazer isso ficar bem simples, sem virar um projeto grande ou caro.\\n\\nJá ajudei alguns negócios parecidos com isso. Se fizer sentido, posso te mostrar uns exemplos e a gente conversa se topa, sem compromisso nenhum.`;\n  \n  lead.ollama_prompt = \"Escreva apenas a palavra 'ok'.\";\n  return [{ json: lead }];\n}\n\nconst lib = {\n  abertura: [\n    \"Oi! Encontrei a [nome] no Google e dei uma olhada no site de vocês.\",\n    \"Oi! Passei pelo site de vocês e uma coisa me chamou atenção.\",\n    \"Oi! Estava pesquisando empresas da região e acabei chegando no site de vocês.\"\n  ],\n  contexto: [\n    \"Vi que vocês trabalham com [principal_servico].\",\n    \"Acabei vendo que vocês atuam na área de [principal_servico].\",\n    \"Pelo que vi no site, o foco de vocês é [principal_servico].\"\n  ],\n  gancho: [\n    \"Enquanto olhava o site, teve um detalhe que me chamou atenção.\",\n    \"Navegando por ele, encontrei algo que acho que vale mostrar.\",\n    \"Vi uma coisa no site que pode estar atrapalhando sem vocês perceberem.\"\n  ],\n  impacto: [\n    \"No fim, quem está com pressa normalmente não insiste muito.\",\n    \"Esse tipo de detalhe faz muita gente fechar a página antes de entrar em contato.\",\n    \"Nessa hora muita gente acaba indo para outro resultado.\"\n  ],\n  cta: [\n    \"Se fizer sentido, posso te mostrar exatamente o que encontrei.\",\n    \"Posso te explicar melhor o que vi.\",\n    \"Se quiser, te mostro em dois minutos.\"\n  ]\n};\n\nconst r = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\nlead.b1_abertura = r(lib.abertura).replace('\\[nome\\]', lead.nome);\nlead.b2_contexto = lead.principal_servico ? r(lib.contexto).replace('\\[principal_servico\\]', lead.principal_servico.toLowerCase()) : '';\nlead.b3_gancho = r(lib.gancho);\n\nconst problema_principal = (lead.problemas_encontrados && lead.problemas_encontrados.length > 0) \n    ? lead.problemas_encontrados[0]\n    : 'Algumas coisas poderiam estar melhores';\n\nlead.b5_impacto = r(lib.impacto);\nlead.b6_autoridade = \"Trabalho justamente com esse tipo de análise para negócios locais.\";\nlead.b7_cta = r(lib.cta);\n\nlead.ollama_prompt = `Você é um especialista em comunicação de WhatsApp no Brasil. Sua única tarefa é reescrever o problema técnico abaixo em terceira pessoa (falando do site do cliente) em UMA frase coloquial e natural (máximo de 2 frases) para que se encaixe no meio de uma conversa com o dono da empresa. Ex: 'O site não possui...' e nunca 'O nosso site não possui...'. Não use jargão técnico como SEO, viewport, meta description, alt tag, SSL, cache, DOM, HTML, tag.\\n\\nPROBLEMA ORIGINAL:\\n\"${problema_principal}\"\\n\\nRetorne APENAS uma frase contendo a reescrita do problema. Não escreva nenhuma outra frase antes ou depois. Não adicione saudações, nem introduções.`;\n\nreturn [{\n  json: lead\n}];"
       }
     },
     {
@@ -98,16 +25,13 @@
       "name": "Ollama (Bloco 4)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        800,
-        300
-      ],
+      "position": [800, 300],
       "parameters": {
         "method": "POST",
         "url": "http://ollama:11434/api/generate",
         "sendBody": true,
-        "contentType": "json",
-        "body": "={{ JSON.stringify({ model: 'mistral', prompt: $json.ollama_prompt, stream: false, options: { num_predict: 80, temperature: 0.1 } }) }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'mistral', prompt: $json.ollama_prompt, stream: false, options: { num_predict: 80, temperature: 0.1 } }) }}",
         "options": {}
       }
     },
@@ -116,12 +40,9 @@
       "name": "Montar e Validar Mensagem",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1000,
-        300
-      ],
+      "position": [1000, 300],
       "parameters": {
-        "jsCode": "const lead = $('Selecionar Variaveis e Prompt').first().json;\nconst ollamaResp = $input.first().json;\n\n// Gerar UUID (v4) mockado pois nativamente o n8n n\u00e3o exporta 'crypto' nos blocos padr\u00e3o\nlead.id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);\n  return v.toString(16);\n});\n\nif (!lead.tem_site || lead.site_inacessivel) {\n  lead.mensagem_gerada = lead.mensagem_gerada_sem_site;\n  lead.status = 'aguardando_aprovacao';\n  return [{ json: lead }];\n}\n\nlet b4_problema = ollamaResp.response ? ollamaResp.response.trim().replace(/^[\"']|[\"']$/g, '') : '';\n\nlet erros = [];\nconst wordCount = b4_problema.split(/\\s+/).length;\nif (wordCount > 40) erros.push(`Bloco 4 muito longo (${wordCount} palavras)`);\n\nconst frasesProibidas = ['trabalho', 'se quiser', 'posso te', 'aqui est\u00e1', 'claro', 'ol\u00e1', 'oi', 'tudo bem'];\nconst regexProibida = new RegExp(`\\\\b(${frasesProibidas.join('|')})\\\\b`, 'i');\nif (b4_problema.match(regexProibida)) erros.push('Bloco 4 cont\u00e9m elementos t\u00edpicos de outros blocos ou sauda\u00e7\u00f5es');\n\nconst jargoes = ['seo', 'viewport', 'meta description', 'alt tag', 'ssl', 'https', 'cache', 'dom', 'html', 'tag'];\nconst regexJargoes = new RegExp(`\\\\b(${jargoes.join('|')})\\\\b`, 'i');\nif (b4_problema.match(regexJargoes)) erros.push('Bloco 4 cont\u00e9m jarg\u00f5es t\u00e9cnicos');\n\nconst numFrases = (b4_problema.match(/[.!?]+(?=\\s|$)/g) || []).length;\nconst contagemRealFrases = numFrases === 0 ? 1 : numFrases;\nif (contagemRealFrases > 2) erros.push(`Bloco 4 tem mais de 2 frases (${contagemRealFrases} frases)`);\n\nif (!b4_problema) erros.push('Bloco 4 vazio');\n\nif (erros.length > 0) {\n  lead.status = 'erro_copy';\n  lead.erro_detalhe = erros.join(', ');\n} else {\n  const blocos = [\n    lead.b1_abertura,\n    lead.b2_contexto,\n    lead.b3_gancho,\n    b4_problema,\n    lead.b5_impacto,\n    lead.b6_autoridade,\n    lead.b7_cta\n  ];\n  \n  lead.mensagem_gerada = blocos.filter(b => b && b.trim() !== '').join(' ');\n  lead.status = 'aguardando_aprovacao';\n}\n\nreturn [{\n  json: lead\n}];"
+        "jsCode": "const lead = $('Selecionar Variaveis e Prompt').first().json;\nconst ollamaResp = $input.first().json;\n\n// Gerar UUID se nao tiver\nlead.id = lead.id || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);\n  return v.toString(16);\n});\n\nif (!lead.tem_site || lead.site_inacessivel) {\n  lead.mensagem_gerada = lead.mensagem_gerada_sem_site;\n  lead.status = 'aguardando_aprovacao';\n  lead.problemas_encontrados = lead.problemas_encontrados || [];\n  return [{ json: lead }];\n}\n\nlet b4_problema = ollamaResp.response ? ollamaResp.response.trim().replace(/^[\"']|[\"']$/g, '') : '';\n\nlet erros = [];\nconst wordCount = b4_problema.split(/\\s+/).length;\nif (wordCount > 40) erros.push(`Bloco 4 muito longo (${wordCount} palavras)`);\n\nconst frasesProibidas = ['trabalho', 'se quiser', 'posso te', 'aqui está', 'claro', 'olá', 'oi', 'tudo bem'];\nconst regexProibida = new RegExp(`\\\\b(${frasesProibidas.join('|')})\\\\b`, 'i');\nif (b4_problema.match(regexProibida)) erros.push('Bloco 4 contém elementos típicos de outros blocos ou saudações');\n\nconst jargoes = ['seo', 'viewport', 'meta description', 'alt tag', 'ssl', 'https', 'cache', 'dom', 'html', 'tag'];\nconst regexJargoes = new RegExp(`\\\\b(${jargoes.join('|')})\\\\b`, 'i');\nif (b4_problema.match(regexJargoes)) erros.push('Bloco 4 contém jargões técnicos');\n\nconst numFrases = (b4_problema.match(/[.!?]+(?=\\s|$)/g) || []).length;\nconst contagemRealFrases = numFrases === 0 ? 1 : numFrases;\nif (contagemRealFrases > 2) erros.push(`Bloco 4 tem mais de 2 frases (${contagemRealFrases} frases)`);\n\nif (!b4_problema) erros.push('Bloco 4 vazio');\n\nif (erros.length > 0) {\n  lead.status = 'erro_copy';\n  lead.erro_detalhe = erros.join(', ');\n} else {\n  const blocos = [\n    lead.b1_abertura,\n    lead.b2_contexto,\n    lead.b3_gancho,\n    b4_problema,\n    lead.b5_impacto,\n    lead.b6_autoridade,\n    lead.b7_cta\n  ];\n  \n  lead.mensagem_gerada = blocos.filter(b => b && b.trim() !== '').join(' ');\n  lead.status = 'aguardando_aprovacao';\n}\n\nlead.problemas_encontrados = lead.problemas_encontrados || [];\n\nreturn [{\n  json: lead\n}];"
       }
     },
     {
@@ -129,10 +50,7 @@
       "name": "Postgres (Insert Lead)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.2,
-      "position": [
-        1200,
-        300
-      ],
+      "position": [1200, 300],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO argus.leads (id, nome, telefone, canal, categoria_mapeada, tem_site, url_site, problemas_encontrados, severidade, mensagem_gerada, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW());",
@@ -143,64 +61,17 @@
     }
   ],
   "connections": {
-    "Trigger Manual": {
-      "main": [
-        [
-          {
-            "node": "Definir Lead de Teste",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Definir Lead de Teste": {
-      "main": [
-        [
-          {
-            "node": "Selecionar Variaveis e Prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Selecionar Variaveis e Prompt", "type": "main", "index": 0}]]
     },
     "Selecionar Variaveis e Prompt": {
-      "main": [
-        [
-          {
-            "node": "Ollama (Bloco 4)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Ollama (Bloco 4)", "type": "main", "index": 0}]]
     },
     "Ollama (Bloco 4)": {
-      "main": [
-        [
-          {
-            "node": "Montar e Validar Mensagem",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Montar e Validar Mensagem", "type": "main", "index": 0}]]
     },
     "Montar e Validar Mensagem": {
-      "main": [
-        [
-          {
-            "node": "Postgres (Insert Lead)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Postgres (Insert Lead)", "type": "main", "index": 0}]]
     }
-  },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
   }
 }

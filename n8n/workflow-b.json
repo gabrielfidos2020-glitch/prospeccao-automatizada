@@ -4,80 +4,22 @@
   "nodes": [
     {
       "id": "a1b2c3d4-0001-0001-0001-000000000001",
-      "name": "Trigger Manual",
-      "type": "n8n-nodes-base.manualTrigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
       "position": [200, 300],
       "parameters": {}
-    },
-    {
-      "id": "a1b2c3d4-0002-0002-0002-000000000002",
-      "name": "Definir Lead de Teste",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [440, 300],
-      "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "assign-01",
-              "name": "url_site",
-              "value": "https://odontospecialsjc.com.br/",
-              "type": "string"
-            },
-            {
-              "id": "assign-02",
-              "name": "categoria_mapeada",
-              "value": "Saúde/estética",
-              "type": "string"
-            },
-            {
-              "id": "assign-03",
-              "name": "nome",
-              "value": "Odonto Special SJC",
-              "type": "string"
-            },
-            {
-              "id": "assign-04",
-              "name": "telefone",
-              "value": "(12) 99999-0000",
-              "type": "string"
-            },
-            {
-              "id": "assign-05",
-              "name": "endereco",
-              "value": "São José dos Campos, SP",
-              "type": "string"
-            },
-            {
-              "id": "assign-06",
-              "name": "canal",
-              "value": "whatsapp",
-              "type": "string"
-            },
-            {
-              "id": "assign-07",
-              "name": "tem_site",
-              "value": true,
-              "type": "boolean"
-            }
-          ]
-        },
-        "options": {}
-      }
     },
     {
       "id": "a1b2c3d4-0003-0003-0003-000000000003",
       "name": "Buscar HTML do Site",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300],
+      "position": [440, 300],
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.url_site }}",
+        "url": "={{ $json.url_site || $json.site }}",
         "options": {
           "timeout": 10000,
           "response": {
@@ -93,9 +35,9 @@
       "name": "Filtrar HTML e Selecionar Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [920, 300],
+      "position": [680, 300],
       "parameters": {
-        "jsCode": "// ─── Lead data (nó Set upstream) ─────────────────────────\nconst lead = $('Definir Lead de Teste').first().json;\nconst categoriaMapeada = lead.categoria_mapeada || 'Saúde/estética';\n\n// ─── Verifica resposta HTTP GET ────────────────────────────\nconst httpItem = $input.first();\nconst httpHtml = httpItem.json.data || httpItem.json.body || '';\nconst httpError = !!httpItem.json.error || (httpItem.json.statusCode && httpItem.json.statusCode >= 400);\n\nif (httpError || typeof httpHtml !== 'string' || httpHtml.length < 100) {\n  return [{\n    json: {\n      nome: lead.nome || '',\n      telefone: lead.telefone || '',\n      endereco: lead.endereco || '',\n      site: lead.url_site || '',\n      categoria_mapeada: categoriaMapeada,\n      canal: lead.canal || '',\n      tem_site: true,\n      site_inacessivel: true,\n      prompt: '',\n      ollamaRequest: '',\n    }\n  }];\n}\n\n// ─── Filtragem de HTML ─────────────────────────────────────\nfunction filtrarHTML(rawHtml) {\n  let filtrado = rawHtml\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<!--[\\s\\S]*?-->/g, '');\n\n  const titleMatch = filtrado.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\n  const title = titleMatch ? `TITLE: ${titleMatch[1].trim()}` : '';\n\n  const metas = [];\n  const metaRe = /<meta[^>]+>/gi;\n  let m;\n  while ((m = metaRe.exec(filtrado)) !== null) {\n    if (/description|viewport|charset|keywords/i.test(m[0])) {\n      metas.push(m[0].replace(/\\s+/g, ' ').trim());\n    }\n  }\n\n  const headings = [];\n  const headRe = /<h([1-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;\n  while ((m = headRe.exec(filtrado)) !== null) {\n    const texto = m[2].replace(/<[^>]+>/g, '').trim();\n    if (texto) headings.push(`H${m[1]}: ${texto}`);\n  }\n\n  const hrefs = [];\n  const hrefRe = /href=[\"']([^\"']+)[\"']/gi;\n  while ((m = hrefRe.exec(filtrado)) !== null) {\n    if (!m[1].startsWith('#') && m[1].trim()) hrefs.push(m[1].trim());\n  }\n\n  const imgs = [];\n  const imgRe = /<img[^>]+>/gi;\n  while ((m = imgRe.exec(filtrado)) !== null) {\n    const alt = (m[0].match(/alt=[\"']([^\"']*)[\"']/i) || [])[1] || '';\n    const src = (m[0].match(/src=[\"']([^\"']*)[\"']/i) || [])[1] || '';\n    imgs.push(`IMG alt=\"${alt}\" src=\"${src.substring(0, 60)}\"`);\n  }\n\n  const textoLimpo = filtrado\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 1000);\n\n  return [\n    title,\n    metas.length    ? 'METAS:\\n'    + metas.slice(0, 5).join('\\n')    : '',\n    headings.length ? 'HEADINGS:\\n' + headings.slice(0, 8).join('\\n') : '',\n    hrefs.length    ? 'LINKS:\\n'    + hrefs.slice(0, 10).join('\\n')   : '',\n    imgs.length     ? 'IMAGENS:\\n'  + imgs.slice(0, 6).join('\\n')     : '',\n    textoLimpo      ? 'TEXTO:\\n'    + textoLimpo                       : '',\n  ].filter(Boolean).join('\\n\\n');\n}\n\nconst htmlFiltrado = filtrarHTML(httpHtml);\nconst needs_screenshot = htmlFiltrado.length < 300;\nconst htmlTruncado = htmlFiltrado.substring(0, 1000);\n\n// ─── Prompts por nicho ─────────────────────────────────────\nconst PROMPTS = {\n  'Saúde/estética': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de clínica, consultório ou estabelecimento de saúde/estética e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder pacientes ou clientes.\\n\\nUm site de saúde/estética que converte bem precisa ter:\\n- Botão de WhatsApp ou agendamento visível logo no topo da página\\n- Lista clara dos serviços ou tratamentos oferecidos com descrição simples (não só o nome)\\n- Foto e nome dos profissionais que atendem (paciente quer saber quem vai atender antes de marcar)\\n- Depoimentos reais de pacientes ou clientes\\n- Endereço completo, horário de funcionamento e mapa\\n- Site rápido e funcional no celular\\n- Certificado de segurança (https) ativo\\n\\nAnalise o HTML e identifique o que está faltando ou poderia melhorar. Foque nos elementos que mais impactam a decisão do paciente de entrar em contato.\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de clínica sem conhecimento técnico entenda, foque no impacto para o negócio. Retorne APENAS JSON válido sem texto fora do JSON. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se falta botão de contato, lista de serviços ou o site não funciona no celular.\\n\\nHTML: [HTML_AQUI]`,\n\n  'Serviços profissionais': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de escritório profissional (advocacia, contabilidade, arquitetura, imobiliária ou consultoria) e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder clientes.\\n\\nUm site de serviços profissionais que converte bem precisa ter:\\n- Especialidades ou áreas de atuação explicadas claramente logo na entrada (cliente precisa saber em segundos se você resolve o problema dele)\\n- Credenciais visíveis: tempo de experiência, registro profissional (OAB, CRC, CAU), número de casos atendidos\\n- Formulário de contato simples ou WhatsApp direto de fácil acesso\\n- Depoimentos de clientes reais com nome e contexto\\n- Seção de perguntas frequentes ou explicação do processo de atendimento\\n- Informação de localização e horário de atendimento\\n\\nRegras: português brasileiro natural e direto, linguagem que um advogado ou contador sem conhecimento técnico de web entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há forma clara de contato ou especialidades não descritas.\\n\\nHTML: [HTML_AQUI]`,\n\n  'Comércio/loja física': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de loja física (roupas, móveis, decoração, joalheria ou presentes) e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo essa loja perder clientes antes mesmo de eles visitarem o espaço físico.\\n\\nUm site de loja física que converte bem precisa ter:\\n- Galeria ou catálogo de produtos com fotos de qualidade (cliente quer ver o produto antes de ir até a loja)\\n- Botão de WhatsApp visível para tirar dúvidas ou checar disponibilidade\\n- Endereço completo com mapa e horário de funcionamento em destaque\\n- Pelo menos uma indicação de faixa de preço ou promoção ativa\\n- Link para Instagram atualizado (prova visual do estoque)\\n- Site funcional no celular\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de loja sem conhecimento técnico entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há fotos de produto, endereço ou forma de contato visível.\\n\\nHTML: [HTML_AQUI]`,\n\n  'Eventos/hospedagem': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de buffet, espaço para eventos, pousada ou hotel e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder reservas e contratos.\\n\\nUm site de eventos/hospedagem que converte bem precisa ter:\\n- Galeria de fotos do espaço físico com qualidade e variedade (elemento mais decisivo — cliente compra visualmente)\\n- Capacidade do espaço e tipos de evento atendidos descritos claramente (casamento, aniversário, corporativo, quantos convidados)\\n- Formulário de orçamento ou WhatsApp direto de fácil acesso\\n- Depoimentos ou fotos de eventos reais já realizados no espaço\\n- Localização com mapa e como chegar\\n- Informação de disponibilidade ou como verificar datas livres\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de buffet ou pousada sem conhecimento técnico entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há galeria de fotos do espaço ou forma de solicitar orçamento.\\n\\nHTML: [HTML_AQUI]`,\n};\n\nconst promptTemplate = PROMPTS[categoriaMapeada] || PROMPTS['Saúde/estética'];\nconst prompt = promptTemplate.replace('[HTML_AQUI]', htmlTruncado);\n\nconst ollamaRequest = JSON.stringify({\n  model: 'mistral',\n  prompt: prompt,\n  stream: false,\n  options: { num_predict: 200, temperature: 0.1 },\n});\n\nreturn [{\n  json: {\n    nome: lead.nome || '',\n    telefone: lead.telefone || '',\n    endereco: lead.endereco || '',\n    site: lead.url_site || '',\n    categoria_mapeada: categoriaMapeada,\n    canal: lead.canal || '',\n    tem_site: true,\n    site_inacessivel: false,\n    needs_screenshot,\n    prompt,\n    ollamaRequest,\n  }\n}];"
+        "jsCode": "const lead = $('Execute Workflow Trigger').first().json;\nconst categoriaMapeada = lead.categoria_mapeada || 'Saúde/estética';\n\nconst httpItem = $input.first();\nconst httpHtml = httpItem.json.data || httpItem.json.body || '';\nconst httpError = !!httpItem.json.error || (httpItem.json.statusCode && httpItem.json.statusCode >= 400);\n\nif (httpError || typeof httpHtml !== 'string' || httpHtml.length < 100) {\n  return [{\n    json: {\n      nome: lead.nome || '',\n      telefone: lead.telefone || '',\n      endereco: lead.endereco || '',\n      site: lead.url_site || lead.site || '',\n      categoria_mapeada: categoriaMapeada,\n      canal: lead.canal || '',\n      tem_site: true,\n      site_inacessivel: true,\n      prompt: '',\n      ollamaRequest: '',\n    }\n  }];\n}\n\nfunction filtrarHTML(rawHtml) {\n  let filtrado = rawHtml\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<!--[\\s\\S]*?-->/g, '');\n\n  const titleMatch = filtrado.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\n  const title = titleMatch ? `TITLE: ${titleMatch[1].trim()}` : '';\n\n  const metas = [];\n  const metaRe = /<meta[^>]+>/gi;\n  let m;\n  while ((m = metaRe.exec(filtrado)) !== null) {\n    if (/description|viewport|charset|keywords/i.test(m[0])) {\n      metas.push(m[0].replace(/\\s+/g, ' ').trim());\n    }\n  }\n\n  const headings = [];\n  const headRe = /<h([1-6])[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;\n  while ((m = headRe.exec(filtrado)) !== null) {\n    const texto = m[2].replace(/<[^>]+>/g, '').trim();\n    if (texto) headings.push(`H${m[1]}: ${texto}`);\n  }\n\n  const hrefs = [];\n  const hrefRe = /href=[\"']([^\"']+)[\"']/gi;\n  while ((m = hrefRe.exec(filtrado)) !== null) {\n    if (!m[1].startsWith('#') && m[1].trim()) hrefs.push(m[1].trim());\n  }\n\n  const imgs = [];\n  const imgRe = /<img[^>]+>/gi;\n  while ((m = imgRe.exec(filtrado)) !== null) {\n    const alt = (m[0].match(/alt=[\"']([^\"']*)[\"']/i) || [])[1] || '';\n    const src = (m[0].match(/src=[\"']([^\"']*)[\"']/i) || [])[1] || '';\n    imgs.push(`IMG alt=\"${alt}\" src=\"${src.substring(0, 60)}\"`);\n  }\n\n  const textoLimpo = filtrado\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 1000);\n\n  return [\n    title,\n    metas.length    ? 'METAS:\\n'    + metas.slice(0, 5).join('\\n')    : '',\n    headings.length ? 'HEADINGS:\\n' + headings.slice(0, 8).join('\\n') : '',\n    hrefs.length    ? 'LINKS:\\n'    + hrefs.slice(0, 10).join('\\n')   : '',\n    imgs.length     ? 'IMAGENS:\\n'  + imgs.slice(0, 6).join('\\n')     : '',\n    textoLimpo      ? 'TEXTO:\\n'    + textoLimpo                       : '',\n  ].filter(Boolean).join('\\n\\n');\n}\n\nconst htmlFiltrado = filtrarHTML(httpHtml);\nconst needs_screenshot = htmlFiltrado.length < 300;\nconst htmlTruncado = htmlFiltrado.substring(0, 1000);\n\nconst PROMPTS = {\n  'Saúde/estética': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de clínica, consultório ou estabelecimento de saúde/estética e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder pacientes ou clientes.\\n\\nUm site de saúde/estética que converte bem precisa ter:\\n- Botão de WhatsApp ou agendamento visível logo no topo da página\\n- Lista clara dos serviços ou tratamentos oferecidos com descrição simples (não só o nome)\\n- Foto e nome dos profissionais que atendem (paciente quer saber quem vai atender antes de marcar)\\n- Depoimentos reais de pacientes ou clientes\\n- Endereço completo, horário de funcionamento e mapa\\n- Site rápido e funcional no celular\\n- Certificado de segurança (https) ativo\\n\\nAnalise o HTML e identifique o que está faltando ou poderia melhorar. Foque nos elementos que mais impactam a decisão do paciente de entrar em contato.\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de clínica sem conhecimento técnico entenda, foque no impacto para o negócio. Retorne APENAS JSON válido sem texto fora do JSON. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se falta botão de contato, lista de serviços ou o site não funciona no celular.\\n\\nHTML: [HTML_AQUI]`,\n  'Serviços profissionais': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de escritório profissional (advocacia, contabilidade, arquitetura, imobiliária ou consultoria) e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder clientes.\\n\\nUm site de serviços profissionais que converte bem precisa ter:\\n- Especialidades ou áreas de atuação explicadas claramente logo na entrada (cliente precisa saber em segundos se você resolve o problema dele)\\n- Credenciais visíveis: tempo de experiência, registro profissional (OAB, CRC, CAU), número de casos atendidos\\n- Formulário de contato simples ou WhatsApp direto de fácil acesso\\n- Depoimentos de clientes reais com nome e contexto\\n- Seção de perguntas frequentes ou explicação do processo de atendimento\\n- Informação de localização e horário de atendimento\\n\\nRegras: português brasileiro natural e direto, linguagem que um advogado ou contador sem conhecimento técnico de web entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há forma clara de contato ou especialidades não descritas.\\n\\nHTML: [HTML_AQUI]`,\n  'Comércio/loja física': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de loja física (roupas, móveis, decoração, joalheria ou presentes) e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo essa loja perder clientes antes mesmo de eles visitarem o espaço físico.\\n\\nUm site de loja física que converte bem precisa ter:\\n- Galeria ou catálogo de produtos com fotos de qualidade (cliente quer ver o produto antes de ir até a loja)\\n- Botão de WhatsApp visível para tirar dúvidas ou checar disponibilidade\\n- Endereço completo com mapa e horário de funcionamento em destaque\\n- Pelo menos uma indicação de faixa de preço ou promoção ativa\\n- Link para Instagram atualizado (prova visual do estoque)\\n- Site funcional no celular\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de loja sem conhecimento técnico entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há fotos de produto, endereço ou forma de contato visível.\\n\\nHTML: [HTML_AQUI]`,\n  'Eventos/hospedagem': `Você é um consultor de presença digital para pequenas empresas brasileiras. Analise o HTML abaixo de um site de buffet, espaço para eventos, pousada ou hotel e identifique 2 a 3 elementos importantes que estão FALTANDO ou mal implementados, que podem estar fazendo esse negócio perder reservas e contratos.\\n\\nUm site de eventos/hospedagem que converte bem precisa ter:\\n- Galeria de fotos do espaço físico com qualidade e variedade (elemento mais decisivo — cliente compra visualmente)\\n- Capacidade do espaço e tipos de evento atendidos descritos claramente (casamento, aniversário, corporativo, quantos convidados)\\n- Formulário de orçamento ou WhatsApp direto de fácil acesso\\n- Depoimentos ou fotos de eventos reais já realizados no espaço\\n- Localização com mapa e como chegar\\n- Informação de disponibilidade ou como verificar datas livres\\n\\nRegras: português brasileiro natural e direto, linguagem que um dono de buffet ou pousada sem conhecimento técnico entenda. Retorne APENAS JSON válido. Formato: {\"problemas\": [\"problema 1\", \"problema 2\"], \"severidade\": \"critico\" ou \"melhoria\"}. severidade = critico se não há galeria de fotos do espaço ou forma de solicitar orçamento.\\n\\nHTML: [HTML_AQUI]`\n};\n\nconst promptTemplate = PROMPTS[categoriaMapeada] || PROMPTS['Saúde/estética'];\nconst prompt = promptTemplate.replace('[HTML_AQUI]', htmlTruncado);\n\nconst ollamaRequest = JSON.stringify({\n  model: 'mistral',\n  prompt: prompt,\n  stream: false,\n  options: { num_predict: 200, temperature: 0.1 },\n});\n\nreturn [{\n  json: {\n    nome: lead.nome || '',\n    telefone: lead.telefone || '',\n    endereco: lead.endereco || '',\n    site: lead.url_site || lead.site || '',\n    categoria_mapeada: categoriaMapeada,\n    canal: lead.canal || '',\n    tem_site: true,\n    site_inacessivel: false,\n    needs_screenshot,\n    prompt,\n    ollamaRequest,\n  }\n}];"
       }
     },
     {
@@ -103,7 +45,7 @@
       "name": "Site Acessível?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1160, 300],
+      "position": [920, 300],
       "parameters": {
         "conditions": {
           "options": {
@@ -131,14 +73,13 @@
       "name": "Analisar com Ollama (mistral)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1400, 160],
+      "position": [1160, 160],
       "parameters": {
         "method": "POST",
         "url": "http://ollama:11434/api/generate",
         "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ $json.ollamaRequest }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.ollamaRequest }}",
         "options": {
           "timeout": 300000
         }
@@ -149,9 +90,9 @@
       "name": "Extrair Diagnóstico",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1640, 160],
+      "position": [1400, 160],
       "parameters": {
-        "jsCode": "// ─── Dados do lead (nó de filtro) ─────────────────────────\nconst filterData = $('Filtrar HTML e Selecionar Prompt').first().json;\n\n// ─── Resposta bruta do Ollama ──────────────────────────────\nconst ollamaItem = $input.first().json;\nconst respostaRaw = ollamaItem.response || '';\n\n// ─── Extrai JSON com fallback para truncado ───────────────\nfunction extrairJSON(texto) {\n  // Tenta JSON completo\n  const match = texto.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try { return JSON.parse(match[0]); } catch (_) {}\n  }\n  // Fallback: JSON truncado sem } final\n  const inicio = texto.indexOf('{');\n  if (inicio !== -1) {\n    const candidato = texto.slice(inicio).trim();\n    for (const t of [candidato + '}', candidato + '\"melhoria\"}']) {\n      try { return JSON.parse(t); } catch (_) {}\n    }\n  }\n  return null;\n}\n\nlet problemas_encontrados = [];\nlet severidade = 'erro_parse';\n\nif (respostaRaw) {\n  const parsed = extrairJSON(respostaRaw);\n  if (parsed && Array.isArray(parsed.problemas) && parsed.problemas.length > 0) {\n    problemas_encontrados = parsed.problemas;\n    severidade = ['critico', 'melhoria'].includes(parsed.severidade)\n      ? parsed.severidade\n      : 'melhoria';\n  }\n}\n\nreturn [{\n  json: {\n    nome: filterData.nome || '',\n    telefone: filterData.telefone || '',\n    endereco: filterData.endereco || '',\n    site: filterData.site || '',\n    categoria_mapeada: filterData.categoria_mapeada || '',\n    canal: filterData.canal || '',\n    tem_site: true,\n    problemas_encontrados,\n    severidade,\n  }\n}];"
+        "jsCode": "const filterData = $('Filtrar HTML e Selecionar Prompt').first().json;\nconst ollamaItem = $input.first().json;\nconst respostaRaw = ollamaItem.response || '';\n\nfunction extrairJSON(texto) {\n  const match = texto.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try { return JSON.parse(match[0]); } catch (_) {}\n  }\n  const inicio = texto.indexOf('{');\n  if (inicio !== -1) {\n    const candidato = texto.slice(inicio).trim();\n    for (const t of [candidato + '}', candidato + '\"melhoria\"}']) {\n      try { return JSON.parse(t); } catch (_) {}\n    }\n  }\n  return null;\n}\n\nlet problemas_encontrados = [];\nlet severidade = 'erro_parse';\n\nif (respostaRaw) {\n  const parsed = extrairJSON(respostaRaw);\n  if (parsed && Array.isArray(parsed.problemas) && parsed.problemas.length > 0) {\n    problemas_encontrados = parsed.problemas;\n    severidade = ['critico', 'melhoria'].includes(parsed.severidade) ? parsed.severidade : 'melhoria';\n  }\n}\n\nreturn [{\n  json: {\n    nome: filterData.nome || '',\n    telefone: filterData.telefone || '',\n    endereco: filterData.endereco || '',\n    site: filterData.site || '',\n    categoria_mapeada: filterData.categoria_mapeada || '',\n    canal: filterData.canal || '',\n    tem_site: true,\n    problemas_encontrados,\n    severidade,\n  }\n}];"
       }
     },
     {
@@ -159,19 +100,25 @@
       "name": "Registrar Site Inacessível",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1400, 460],
+      "position": [1160, 460],
       "parameters": {
         "jsCode": "const item = $input.first().json;\nreturn [{\n  json: {\n    nome: item.nome || '',\n    telefone: item.telefone || '',\n    endereco: item.endereco || '',\n    site: item.site || item.url_site || '',\n    categoria_mapeada: item.categoria_mapeada || '',\n    canal: item.canal || '',\n    tem_site: true,\n    problemas_encontrados: [],\n    severidade: 'erro_acesso',\n  }\n}];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "name": "Chamar Workflow C",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1700, 300],
+      "parameters": {
+        "workflowId": "workflow-c-mensagens-envio-v1",
+        "mode": "each"
       }
     }
   ],
   "connections": {
-    "Trigger Manual": {
-      "main": [
-        [{"node": "Definir Lead de Teste", "type": "main", "index": 0}]
-      ]
-    },
-    "Definir Lead de Teste": {
+    "Execute Workflow Trigger": {
       "main": [
         [{"node": "Buscar HTML do Site", "type": "main", "index": 0}]
       ]
@@ -196,10 +143,16 @@
       "main": [
         [{"node": "Extrair Diagnóstico", "type": "main", "index": 0}]
       ]
+    },
+    "Extrair Diagnóstico": {
+      "main": [
+        [{"node": "Chamar Workflow C", "type": "main", "index": 0}]
+      ]
+    },
+    "Registrar Site Inacessível": {
+      "main": [
+        [{"node": "Chamar Workflow C", "type": "main", "index": 0}]
+      ]
     }
-  },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
   }
 }
