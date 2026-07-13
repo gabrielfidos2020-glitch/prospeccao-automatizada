@@ -1,23 +1,22 @@
-# ─────────────────────────────────────────
-# Stage 1: Instala dependências
-# ─────────────────────────────────────────
-FROM node:20-slim AS deps
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev
-
-# ─────────────────────────────────────────
-# Stage 2: Runtime leve (Sem Chromium)
-# ─────────────────────────────────────────
 FROM node:20-slim
 
 WORKDIR /app
 
-# Copia dependências do stage anterior e arquivos fonte
-COPY --from=deps /app/node_modules ./node_modules
+# Instala dependências do Chromium para o Puppeteer
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Força o Puppeteer a usar o Chromium do sistema
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+COPY package*.json ./
+RUN npm install --omit=dev
+
 COPY . .
 
 EXPOSE 3000
-
 CMD ["node", "index.js"]
